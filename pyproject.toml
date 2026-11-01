@@ -1,0 +1,12 @@
+[project]
+name = "mailam-blog"
+version = "0.0.0"
+description = "Mai Làm's blog: long-form writing and news across its projects"
+requires-python = ">=3.14"
+dependencies = [
+    # the site generator, as Bruno's docs use it
+    "zensical==0.0.72",
+]
+
+[tool.uv]
+package = false

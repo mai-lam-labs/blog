@@ -1,0 +1,51 @@
+# Mai Làm's blog, blog.mailam.app (make build, make serve): built by Zensical from docs/, the
+# blog at the site's root, posts in docs/posts/
+[project]
+site_name = "Mai Làm Labs"
+site_url = "https://blog.mailam.app/"
+site_description = "Long-form writing and news from Mai Làm Labs"
+site_author = "Mai Làm Labs"
+copyright = "mai-lam-labs. The writing: CC0 1.0."
+repo_url = "https://github.com/mai-lam-labs/blog"
+repo_name = "mai-lam-labs/blog"
+docs_dir = "docs"
+site_dir = "dist/site"
+extra_css = ["stylesheets/extra.css"]
+extra_javascript = ["javascripts/recent.js"]
+
+[project.theme]
+custom_dir = "overrides"
+language = "en"
+logo = "assets/mailam.png"
+favicon = "assets/mailam.png"
+font.text = "Newsreader"
+font.code = "JetBrains Mono"
+features = [
+  "content.code.copy",
+  "navigation.footer",
+  "navigation.top",
+]
+
+[[project.theme.palette]]
+scheme = "default"
+
+[project.plugins.blog]
+blog_dir = "."
+post_dir = "posts"
+post_url_format = "{slug}"
+post_readtime = true
+
+[project.plugins.rss]
+match_path = "posts/.*"
+date_from_meta.as_creation = "date"
+
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+footnotes = {}
+md_in_html = {}
+tables = {}
+toc.permalink = true
+pymdownx.highlight.anchor_linenums = true
+pymdownx.inlinehilite = {}
+pymdownx.superfences = {}

@@ -1,0 +1,114 @@
+/* A reading page: serif text, larger type, a narrow column, cream paper and soft ink. */
+
+:root,
+[data-md-color-scheme="default"] {
+  --md-default-bg-color: #faf6ec;
+  --md-default-fg-color: #3b3229;
+  --md-default-fg-color--light: #6b5e50;
+  --md-default-fg-color--lighter: #a3968a;
+  --md-default-fg-color--lightest: #e6dece;
+  --md-primary-fg-color: #faf6ec;
+  --md-primary-bg-color: #3b3229;
+  --md-primary-bg-color--light: #6b5e50;
+  --md-accent-fg-color: #8a4b2a;
+  --md-typeset-color: #3b3229;
+  --md-typeset-a-color: #8a4b2a;
+  --md-code-bg-color: #f2ecdd;
+  --md-code-fg-color: #3b3229;
+  --md-footer-bg-color: #efe8d8;
+  --md-footer-bg-color--dark: #e8e0cd;
+  --md-footer-fg-color: #3b3229;
+  --md-footer-fg-color--light: #6b5e50;
+  --md-footer-fg-color--lighter: #8c7f71;
+}
+
+/* the header blends into the page, with a hairline under it */
+.md-header {
+  box-shadow: none;
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+}
+
+/* the post's details and contents beside it, the text itself about 70 characters wide */
+.md-grid {
+  max-width: 72rem;
+}
+
+.md-content__inner {
+  max-width: 40rem;
+}
+
+/* centred only where there's room; on narrower screens the theme's own margins stay */
+@media screen and (min-width: 76.25em) {
+  .md-content__inner {
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+.md-typeset {
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3 {
+  color: var(--md-default-fg-color);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.md-typeset h1 {
+  font-size: 2.2em;
+  line-height: 1.2;
+}
+
+.md-typeset code {
+  font-size: 0.8em;
+}
+
+/* the title sits close to what follows it */
+.md-typeset h1 {
+  margin-bottom: 0.6em;
+}
+
+/* on the front page, each post's title comes first, then its date, category and read time
+   (no avatar), then the excerpt */
+.md-post--excerpt {
+  display: flex;
+  flex-direction: column;
+}
+
+.md-post--excerpt .md-post__content {
+  display: contents;
+}
+
+.md-post--excerpt .md-post__content > h2 {
+  order: -2;
+  margin-bottom: 0.2em;
+}
+
+.md-post--excerpt .md-post__header {
+  order: -1;
+  margin-bottom: 0.4em;
+}
+
+.md-post--excerpt .md-post__authors {
+  display: none;
+}
+
+/* the newest posts at the foot of the left sidebar (javascripts/recent.js) */
+.md-recent {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.md-recent__title {
+  margin: 0 1rem 0.4rem;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
