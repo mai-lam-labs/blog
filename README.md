@@ -7,8 +7,8 @@ Long-form writing and news from Mai Làm Labs, across its projects, published at
   `docs/.authors.yml`), a project under `categories`, and a `slug` for the URL. The text above
   `<!-- more -->` is the excerpt on the front page. A post with `draft: true` is left out of the
   site until it's removed.
-- **Notes** are in `notes/`: briefs, outlines and research behind the posts. They aren't
-  published.
+- **Notes** are in `notes/`: briefs, outlines and research behind the posts, and
+  `notes/style.md`, how the posts should read. They aren't published.
 - **The look** is `docs/stylesheets/extra.css` over Zensical's theme, with
   `docs/javascripts/recent.js` for the sidebar's recent posts and `overrides/` for the one
   template change (the front page's title).

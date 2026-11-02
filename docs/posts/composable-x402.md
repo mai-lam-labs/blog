@@ -1,5 +1,5 @@
 ---
-date: 2026-11-01
+date: 2026-10-28
 authors:
   - harryr
 categories:
@@ -7,110 +7,135 @@ categories:
 slug: composable-x402
 ---
 
-# Composable x402
+# What binds an x402 payment to the service?
 
-x402 makes a payment one HTTP round trip: a `402` names the price, the client signs, the
-server settles and answers. For a fraction of a cent of API access, settled by a facilitator on
-a fast L2, that is the right shape. Pay for something on chain with it, something worth more
-than the request it rides on, and the shape stops fitting. Not because of a bug: because of
-where x402 puts the payment.
+x402 has made it easy to pay a fraction of a cent for API access on fast L2 chains, and it's
+quickly growing in the agentic and machine-to-machine spaces as an alternative to
+advertising-subsidised services, individual API keys, and pre- or post-paid billing
+relationships. An HTTP `402` response names the price and payment details, the client signs a
+payment, and the server settles it and answers, all in one round trip. For small payments
+settled by a facilitator, that's exactly what you want.
+
+But something has been bugging us the more we integrate, develop and provide x402-paid
+services, especially once the payment is for something on chain and worth more than the
+request it rides on. What binds the payment to the service?
 
 <!-- more -->
 
-## Payment as a side channel
+## We've been here before
 
-x402 treats a payment as a channel beside the work: verified before, settled after, joined to
-the request by the server's say-so. The signed object binds a token, an amount, a recipient and
-a window. It binds nothing about the request, nothing about whether the work happened, nothing
-about what the work produced. At a tenth of a cent, nobody needs it to. When the payment is the
-gas for a $40 swap, or the price of a call that must succeed for the payment to make sense,
-each missing binding becomes a failure you can name.
+I've seen the same problems come up time and time again in Web2 payments: webhooks that fail
+silently, checkout pages that warn you not to refresh your browser because nothing stops you
+being charged twice, push notifications and polling that disagree about what happened, and
+merchants with no reliable, ordered record of their own payments. The payments industry learned
+the hard way that a payment has to be joined up with the thing it pays for, that retrying it
+has to be safe, and that everyone involved needs to know what to expect and when. Cryptography
+has its own version of the same lesson, which is that a signature should commit to exactly what
+it authorises.
 
-We built a relay that takes x402 for Ethereum transactions: pay in USDC, no ETH, and the
-transaction is sent for you. It is x402-compatible, its conformance judged by x402's own SDK.
-Building it showed three places where payment and work come apart.
+x402 treats the payment as something that happens next to the work rather than as part of it.
+The server verifies the payment before doing anything and settles it afterwards, and the only
+thing joining the two is the server's word, because the signed authorization commits to a
+token, an amount, a recipient and a time window, and says nothing about which request it pays
+for, whether the work happened, or what the work produced.
 
-## 1. The payment isn't bound to the request
+That's a reasonable design for what its authors seem to have had in mind, which is payments of
+a cent or less, settled by a facilitator on a chain with fast blocks, where a payment that goes
+astray is a rounding error. It shipped quickly and it's been adopted quickly, which is how good
+protocols spread. The trouble is that the assumptions spread with it, so every SDK and product
+built on x402 now carries the same gaps, and they get harder to fix the longer they're left.
+When the payment is the gas for a $40 swap, or the price of a call that has to succeed for the
+payment to make sense, each of those gaps turns into a failure you can point to.
 
-An EIP-3009 authorization commits to `from`, `to`, `value`, a validity window and a nonce.
-Nothing in it says which request it pays for. x402's `payment-identifier` extension adds an id,
-but outside the signature: an idempotency key for an honest client, not a binding.
+## Where the payment and the work come apart
 
-So a server can't tell, from the payment, what it is for. A client that times out and signs
-again sends a second, different payment for the same request; nothing in either says they're
-the same purchase, so a server that settles both has been paid twice for one thing. Ours
-matches pending payments by payer and by the exact call they pay for, and holds the second for
-the first: state the server keeps because the payment can't carry it. And a payment seen once
-(in a log, by a proxy) is good for any request at the same price to the same recipient.
+I ran into all of them while building a relay that takes x402 for Ethereum transactions, where
+you pay in USDC, don't need any ETH, and the transaction is sent for you. It's x402-compatible,
+and we check that with x402's own SDK, so everything below happened while following the spec.
 
-The fix needs no new field: the 3009 nonce is the client's to choose. Derive it from the
-request, and the signature the client already makes binds the two.
+The first was idempotence, and it was embarrassingly ordinary. A client sends a paid request,
+the response takes a little too long, and the client does what clients do: it gives up and
+tries again. That means a fresh signature, and a fresh payment, and nothing in either payment
+says they're for the same thing, because the EIP-3009 authorization only commits to who pays
+whom, how much, and when (plus a nonce). So if the server settles both, it's been paid twice
+for one request. x402 does have a `payment-identifier` extension that adds an id to the
+payment, but it sits outside the signature, so it works as an idempotency key for a client
+that's behaving honestly, not as something the server can rely on. We ended up keeping our own
+records to catch it, matching pending payments by the payer and by the exact call they pay
+for, and holding the second until the first is done, which is the don't-refresh-your-browser
+problem all over again. And because nothing ties the payment to the request, a payment that's
+been seen once, in a log or by a proxy, is good for any other request at the same price to the
+same recipient. What's frustrating is that the fix doesn't need a new field, because the 3009
+nonce is the client's to choose, so if the client derives it from the request, the signature it
+already makes binds the payment to the request.
 
-## 2. The payment isn't bound to the outcome
+The second was expectation management. In x402, success means the payment has settled, and
+settled means there's a transaction hash, which is fine when the payment is a transfer on its
+own. In our case the payment is made in the same transaction as the work, so that one can't
+happen without the other, and since that transaction is signed afresh for each block it
+competes for, there's no hash to give until it's included. x402's `settlement_pending` response
+has to carry a broadcast hash too, so it doesn't help, and what we do instead is hold the
+request open until the transaction is included, which can take a slot or several. Most HTTP
+clients give up after a few seconds by default, and although x402 has a `maxTimeoutSeconds`
+field that says how long to wait, it's up to every client to honour it.
 
-x402's success means settled, and settled means a transaction hash. When the payment is made
-in the same transaction as the work, so that one can't happen without the other, there is no
-hash until that transaction is included: it is signed afresh for each block it competes for.
-x402's `settlement_pending` must carry a broadcast hash too. So the server holds the request
-until inclusion, a slot or several, while most HTTP clients give up after a few seconds by
-default. `maxTimeoutSeconds` says how long to wait; it's up to every client to honour it.
+The other option x402 offers is `upfront`, which settles the payment first and does the work
+afterwards, so you get a hash straight away, but the payment is gone whether the work succeeds
+or not, with no refund defined. That makes the gap between payment and work official rather
+than closing it. What anyone from payments would recognise as the answer is a receipt, where
+the server accepts the paid request, answers with a handle, settles the payment and the work
+together, and reports the outcome once there is one.
 
-The alternative x402 offers, `upfront`, settles first and works after. The hash comes at once,
-and the payment is gone whether or not the work succeeds, with no refund defined. That is the
-side channel made explicit.
+The third was joined-upness. `transferWithAuthorization` can be submitted by anyone who holds
+the signature, so the payment can land on its own, in a transaction of its own, whether or not
+the call it paid for ever runs, and the only way a server can make the two atomic is to keep
+the signature to itself and send both together, privately. EIP-3009 already has the piece that
+binds them, `receiveWithAuthorization`, which only the payee can execute, inside its own call,
+so a contract that collects its payment that way does its work and takes its payment in the
+same step. It composes too, because the payee contract can split, escrow or forward the payment
+within the same call. Yet none of x402's EVM methods use it. 3009's transfer, Permit2 through
+x402's proxy, and ERC-7710 delegations all move funds to the payee from outside it, even though
+a `receive` method is exactly the kind of scheme x402's extensibility allows for.
 
-What fits instead is a receipt: accept the paid request, answer with a handle, settle the
-payment and the work together, and report the outcome when there is one.
+Facilitators show up in one more place, which is discovery. The Bazaar, x402's discovery
+service, is built by facilitators from the payments they settle, so a resource only gets listed
+by settling through one, and the facilitator that most clients' Bazaar searches index from
+doesn't settle on Ethereum. A server that settles its own payments atomically, together with
+the work, has no facilitator to settle through in the first place, so the main way people
+passively find x402 services can't see it. It's the same narrow use case again, this time
+built into how the ecosystem grows.
 
-## 3. The payment isn't bound to execution
+## What would help
 
-`transferWithAuthorization` can be submitted by anyone holding the signature. The payment can
-land on its own, in a transaction of its own, whether or not the call it paid for ever runs. A
-server can make them atomic only by keeping the signature to itself until it sends both
-together, privately.
+None of this needs x402 to change shape, and each fix works with x402 as it is on the wire.
+Clients could derive the authorization's nonce from the request, so the payment is bound to it
+and a retry is recognisably the same purchase. Servers could answer a paid request with a
+handle, like a receipt, and report the outcome once it exists. A `receive` scheme would let the
+payee contract collect the payment within its own call. And resources could declare themselves
+for discovery, with the metadata x402 already has (the `bazaar` extension) and a discovery API
+that any host can serve, instead of being found through where they settle.
 
-EIP-3009 has the primitive that binds them: `receiveWithAuthorization`, which only the payee
-can execute, inside its own call. A contract that collects its payment that way does its work
-and takes its payment as one event. It also composes: a payee contract can split, escrow or
-forward within the same call. x402's EVM methods (3009's transfer, Permit2 through x402's proxy,
-ERC-7710 delegations) all move funds to the payee from outside it. A `receive` method is a
-scheme x402's extensibility already allows for.
+These aren't new ideas, either. They're what payments and cryptography learned long ago,
+and the earlier x402 takes them on, the less every SDK and product built on it will have to
+unlearn later. In the meantime, if you're building on x402, whether that's a client, a server
+or an SDK, you don't have to wait for the spec to keep these guarantees. You can bind the
+payment to the request, wait for the outcome, and make the payment and the work one event
+yourself, even where the spec would let you skip it.
 
-## The growth cost: discovery runs through facilitators
+## Our small part
 
-The Bazaar, x402's discovery, is built by facilitators from the payments they settle. A
-resource is listed by settling through one. The facilitator most clients' Bazaar searches index
-from doesn't settle on Ethereum; and a server that settles its own payments atomically, with
-the work, has no facilitator to settle through. The main passive discovery channel can't see it.
-
-Discovery should be declared by the resource, not inferred from settlement: x402 already has
-the metadata (the `bazaar` extension) and a discovery API any host can serve.
-
-## What correct design looks like
-
-- **A request-bound payment:** the authorization's nonce derived from the request.
-- **A settlement receipt:** paid requests answered with a handle; the outcome reported when it
-  exists.
-- **A `receive` scheme:** payment collected by the payee contract within its own call.
-- **Discovery declared, not settled into.**
-
-Each of these is wire-compatible with x402 as it is: a nonce rule, a flow, a scheme, an index.
-We'll open them upstream.
-
-## How the relay does it today
-
-The relay settles the x402 payment and the user's transaction in one transaction: a runner
-that makes the transfer, makes the call, and reverts unless both happen. It sends only through
-builders that drop reverting transactions, privately, so a payment never lands without its
-call, and a call that fails costs no one anything. That is why it runs only where builders give
-that guarantee: Ethereum today, chains with the same guarantee next.
+That's what we've tried to do with Bruno, our relay, which settles the x402 payment and the
+user's transaction in a single transaction. A small
+runner makes the transfer, makes the call, and reverts unless both happen. We only send
+through builders that drop reverting transactions, and we send privately, so a payment never
+lands without its call, and a call that fails costs no one anything. That guarantee is why the
+relay runs only where builders give it, which is Ethereum today, with other chains to follow
+once they offer the same.
 
 It speaks x402 v2 `exact` with EIP-3009, as the spec writes it. Where x402 can't express a
-guarantee, the relay keeps the guarantee and pays the cost: requests held until inclusion, one
-payment per payer in flight, discovery outside the Bazaar.
-
-Composable x402: x402 on the wire, the payment bound to the work.
-
-## Appendix: further practical issues
-
-(From the author's notes.)
+guarantee we care about, we keep the guarantee and pay the cost ourselves. Requests are held
+until inclusion, each payer has one payment in flight at a time, and discovery happens outside
+the Bazaar. We'd much rather the payment carried those guarantees itself, so that any x402
+service could compose with on-chain work the same way. The documentation is at
+[docs.mailam.app/bruno](https://docs.mailam.app/bruno/), and the code at
+[github.com/mai-lam-labs/bruno](https://github.com/mai-lam-labs/bruno).

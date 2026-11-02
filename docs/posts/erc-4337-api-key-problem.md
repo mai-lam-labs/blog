@@ -7,133 +7,154 @@ categories:
 slug: erc-4337-api-key-problem
 ---
 
-# ERC-4337's API key problem
+# How did account abstraction end up behind an API key?
 
-ERC-4337 set out to give Ethereum smart accounts without changing the protocol. A user signs an
-operation, any bundler picks it up, and the bundler pays the gas and is paid back from the
-account. Operations were to travel through a shared mempool, so that no single operator could
-decide what gets included. It was meant to be as open as sending a transaction.
+ERC-4337 set out to give Ethereum smart accounts without changing the protocol. The idea was
+that you'd sign an operation, any bundler could pick it up and pay the gas, and your account
+would pay the bundler back, with operations travelling through a shared mempool so that no
+single operator got to decide what gets included. On paper, it was as open as sending a
+transaction.
 
-Today, using a bundler starts with signing up. You create an account with a vendor, get an API
-key, and put it in the bundler URL. The SDK you install is usually the same vendor's, and its
-examples point at its own endpoint. If your users have no ETH, which is most users, you also
-need the vendor's paymaster. That means a deposit, a spending policy and a monthly plan.
+What a lot of apps ship today looks quite different: you sign in with Google, a wallet gets
+created for you, and your transactions are sponsored, all by one provider and usually only
+inside one app. It works, and it's smooth, but it isn't what any of us signed up for. If that's
+where we end up, we might as well have used Firebase and saved ourselves the trouble.
 
 <!-- more -->
 
-None of this is a failure of the standard. It follows from one question: who pays for the gas
-before anyone has paid for it?
+None of this happened through bad intent. It happened because of a problem that's easy to
+state and hard to solve without someone in the middle: who pays for the gas before anyone has
+paid for it?
+
+Say you've got some USDT in a wallet but no ETH, and you want to use an app that needs your
+approval to spend it. USDT doesn't support permit or EIP-3009, so you can't just sign something
+and be done; the approval has to be a transaction of its own, which needs gas, which you don't
+have. So before you can do anything at all, someone has to either give you ETH or pay for you,
+and whichever way an app gets you around that says a lot about who you end up depending on.
 
 ## How we got here
 
 I waited years for account abstraction to arrive as a native feature of Ethereum, and it was
-frustrating to watch. EIP-3074, which let a key hand control to a contract, was proposed in
-October 2020 ([EIP-3074](https://eips.ethereum.org/EIPS/eip-3074)). It was finally scheduled
-for Pectra in early 2024. In May 2024, Vitalik proposed EIP-7702
-([EIP-7702](https://eips.ethereum.org/EIPS/eip-7702)), and within weeks the core developers
-swapped it in
-([ACDE #187](https://galaxy.com/insights/research/ethereum-all-core-developers-execution-call-187),
-[ACDE #190](https://paragraph.xyz/@timbeiko.eth/acde-190-recap)). Pectra activated it in May 2025
-([Ethereum Foundation](https://blog.ethereum.org/2025/04/23/pectra-mainnet)). Today a key can
-delegate to smart account code with a signature, and keep its address.
+frustrating to watch. [EIP-3074](https://eips.ethereum.org/EIPS/eip-3074) was proposed in late
+2020 and would have let a key hand control to a contract, but it spent years in deliberation
+before finally being scheduled for Pectra in early 2024. Then in May 2024 Vitalik proposed
+[EIP-7702](https://eips.ethereum.org/EIPS/eip-7702), and within weeks support had shifted. The
+core developers
+[swapped it in](https://galaxy.com/insights/research/ethereum-all-core-developers-execution-call-187)
+and [confirmed it](https://paragraph.xyz/@timbeiko.eth/acde-190-recap) a few calls later, and it
+[went live with Pectra](https://blog.ethereum.org/2025/04/23/pectra-mainnet) the following May.
+It showed that we can move quickly when we want to, and it's why a key today can hand its
+account over to smart account code with a single signature, while keeping its address.
 
-In the meantime, ERC-4337 ([ERC-4337](https://eips.ethereum.org/EIPS/eip-4337)), from September
-2021, gave us smart accounts without waiting for a fork: an alternative mempool, a singleton
-EntryPoint contract, and bundlers to carry operations on chain. It worked, and a whole
-ecosystem grew up around it. I still think it's overengineered. Operations travel through a
-mempool of their own, with far more restrictions than Ethereum's: validation rules on which
-opcodes an account may use and which storage it may touch, staking, and reputation for the
-contracts involved ([ERC-7562](https://eips.ethereum.org/EIPS/eip-7562)).
+In the meantime, [ERC-4337](https://eips.ethereum.org/EIPS/eip-4337) had arrived in September
+2021 and given us smart accounts without waiting for a fork, by adding a mempool of its own, a
+singleton EntryPoint contract, and bundlers to carry operations on chain. It worked, and a
+whole ecosystem grew up around it, but I still think it's overengineered, because its mempool
+carries far more restrictions than Ethereum's own, with
+[validation rules](https://eips.ethereum.org/EIPS/eip-7562) on which opcodes an account may use
+and which storage it may touch, plus staking and reputation for the contracts involved.
 
-I see the bundler economy as a symptom. The protocol didn't offer what people needed, so a
-shadow economy formed to supply it, and entire companies were built to do something that
-probably didn't need doing. That's worth learning from. It's also why the habits it left
-behind deserve a second look now that the protocol has caught up.
+I see the bundler economy as a symptom, because the protocol didn't offer what people needed,
+so a shadow economy formed to supply it and entire companies were built to do something that
+probably didn't need doing. Once a company exists to fill a gap, its business depends on the
+gap, and the way to grow is to own more of the path around it, so what happened next was
+predictable.
 
-## The paymaster is the product
+ERC-4337's answer to the first-transaction problem is the paymaster, a contract that pays for
+an operation from its own deposit. Whoever runs it carries the risk, so it needs to know who
+it's paying for. That means an account, a key to tie requests to the account, limits on what
+it will spend, and a bill at the end of the month. Once the paymaster needs an account, there's
+little reason for the bundler not to need one too, and once you have the developer's account,
+the SDK, the wallet and the login can come from the same place. The developer, not the user,
+becomes the customer.
 
-A new user holds no ETH. Their first operation needs gas, so someone has to pay it up front and
-hope to be repaid. ERC-4337's answer is the paymaster, a contract that pays for an operation
-from its own deposit. Whoever runs it carries the risk. So a paymaster needs to know who it's
-paying for. It needs an account, a key to tie requests to that account, limits on what it will
-spend, and a way to bill for it.
+## What the easy route costs
 
-Once the paymaster needs an account, there's little reason for the bundler not to need one too.
-The two are sold together, priced per month or as a markup on gas, and billed to the developer.
-The developer, not the user, becomes the customer.
+The easy routes come in a few shapes, with varying degrees of lock-in. There's the vendor's
+paymaster, which sponsors your users' gas on your account. There's the embedded wallet, where
+your users sign in with an email or a social login and the key is held by the provider, or
+split between the provider and the user. And there are accounts that only make sense inside the
+app that created them. Most stacks combine all three, from one vendor, and each is a sensible
+choice when you're trying to ship. Together they're vertical integration, where Ethereum's
+strength has always been composability, any wallet with any app through any provider.
 
-## What it costs to let someone in
+The direct cost is easy to see. Much of what's paid isn't for gas, it's for an account with a
+vendor whose service could in principle be open to anyone.
 
-For an established app, a gas plan is a line item. For a team still finding its users, it's a
-cost paid before the first transaction, on top of the gas itself.
-[Pimlico](https://pimlico.io/pricing) adds 10% to sponsored gas on mainnet.
-[Alchemy](https://www.alchemy.com/pricing) adds an 8% admin fee to it, bills its APIs by compute
-unit, and sends anything larger to sales. [ZeroDev](https://zerodev.app/pricing) adds 8% on top
-of a monthly plan. [Privy](https://www.privy.io/pricing) charges by active user, up to a
-$2,000 base fee past 10,000 of them. Much of what's paid isn't for gas. It's for an
-account with a vendor whose service could, in principle, be open to anyone.
+| Provider | What it charges on top of gas |
+| --- | --- |
+| [Pimlico](https://pimlico.io/pricing) | 10% on sponsored gas on mainnet |
+| [Alchemy](https://www.alchemy.com/pricing) | An 8% admin fee on sponsored gas, its APIs billed by compute unit, larger plans through sales |
+| [ZeroDev](https://zerodev.app/pricing) | 8% on sponsored gas, on top of a monthly plan |
 
-Teams pay it for good reasons: a name they trust, and not having to run infrastructure. A
-bundler at a public URL asks for no infrastructure either. In the age of LLM coding agents,
-adding a second bundler as an option is an afternoon's work, not a project.
+The indirect cost is harder to see until it happens. Every one of those services is an
+intermediary paying for something on your users' behalf, and that payment can stop. The vendor
+finds the plan isn't commercially viable, or the company card on the account expires, or the
+vendor simply stops the service, as [Biconomy did with its bundler](https://blog.biconomy.io/upgrade-path-from-biconomy-v2-to-nexus-post-feb-28-26).
+Then every transaction in the app comes to a halt. If the app is open source, someone can point
+it at another provider and it's a hiccup. If it's closed source, and its users' keys and
+accounts live with that provider, it's permanently dead.
+
+Teams choose this for good reasons: a name they trust, and not having to run infrastructure.
+But a bundler at a public URL asks for no infrastructure either, and in the age of LLM coding
+agents, adding a second one as an option is an afternoon's work.
 
 ## An operation that pays for itself
 
-There's another answer to the question. If the operation pays its own fee as it runs, nobody
-has to pay anything up front.
+There's another answer to the first-transaction problem. If the operation pays its own fee as
+it runs, nobody has to pay anything up front.
 
-An ERC-4337 operation can already do this in ETH: its gas fields pay the bundler, with no
-paymaster. It can do it in a token too. One of the account's own calls transfers the fee to the
-bundler, in the same operation as everything else it does. The bundler simulates the operation,
-checks that it pays enough, and sends it. If it doesn't pay, it isn't sent.
+An ERC-4337 operation can already do this in ETH, because its gas fields pay the bundler without
+any paymaster involved, and it can do it in a token too if one of the account's own calls
+transfers the fee to the bundler as part of the same operation. The bundler simulates it,
+checks that it pays enough, and only sends it if it does. That means a bundler working this way
+doesn't need to know anything about who sent the operation, so it doesn't need accounts, keys
+or spending limits, because it never spends anything it isn't paid back in the same
+transaction, and its URL can simply be public.
 
-A bundler that works this way needs to know nothing about who sent the operation. It needs no
-account, no key and no spending limits, because it never spends anything it isn't paid back in
-the same transaction. Its URL can be public.
+On Ethereum it can go a step further, because builders accept bundles and will drop any
+transaction in one that would revert. A bundler that sends this way never gets a failing
+operation included, so a failed operation costs its sender nothing, and doesn't cost the
+bundler anything either.
 
-On Ethereum, it can go further. Builders accept bundles and drop a transaction in one that would
-revert. A bundler that sends this way never has an operation included that fails, so a failed
-operation costs its sender nothing. The bundler doesn't pay for it either.
-
-## The first transaction, from any token
-
-Take a user holding USDT and no ETH. USDT has no permit and no EIP-3009, so every app wants an
-approval first, and the approval needs gas.
-
-With EIP-7702, the user delegates their account to a smart account implementation by signing an
-authorization. That signature is not a transaction. The first operation can then do everything
-in one go:
-
-1. swap part of the USDT into a token the bundler accepts, enough to cover the fee;
-2. make the app's calls: the approval (USDT's set to zero first), a swap through whichever
-   router the app uses, a deposit, a transfer;
-3. pay the bundler's fee in the token from the first step.
-
-The user needed a signature and the token, nothing else. The app needed a bundler URL.
+So back to you, with your USDT and no ETH. With EIP-7702 you can delegate your account to a
+smart account implementation just by signing an authorization, which is a signature rather than
+a transaction, and then your very first operation can do everything in one go. It swaps a
+little of the USDT into a token the bundler accepts, makes the app's calls (the approval, with
+USDT's allowance zeroed first, then a swap through whichever router the app uses, a deposit or
+a transfer), and pays the bundler's fee out of that first swap. All you needed was a signature
+and your tokens, and all the app needed was a bundler URL, and because nobody had to pay for you
+up front, nobody needed to know who you were.
 
 ## What we'd like to see
 
-A bundler URL should be a setting, like an RPC URL. Most developers already treat their RPC
-provider this way: they pick one, keep a fallback, and switch when the price or the service
-changes. Nobody expects an RPC provider's SDK to work only with its own nodes.
+None of this is absolute. There's a scale between the cypherpunk ideal, where anyone can serve
+anyone and no company sits in the path of every transaction, and the realities of running a
+business, and most good products sit somewhere along it. What worries me is how far the default
+has drifted toward one end, mostly by accident, one easy choice at a time.
 
-Bundlers could work the same way. ERC-7769 gives them a common JSON-RPC interface, and the
-account SDKs already accept any URL; ZeroDev's docs say bundlers are "perfectly interoperable"
-([ZeroDev](https://docs.zerodev.app/api-and-toolings/infrastructure/choose-an-infra-provider)).
-What's missing is the habit. Examples and quickstarts embed a vendor's endpoint with a key, so
-the first bundler an app uses is the one it keeps.
+Moving it back doesn't take much. A bundler URL should be a setting, like an RPC URL. Most
+developers already treat their RPC provider this way: they pick one, keep a fallback, and switch
+when the price or the service changes. Nobody expects an RPC provider's SDK to work only with
+its own nodes.
 
-We'd like to see:
+Bundlers could work the same way. [ERC-7769](https://eips.ethereum.org/EIPS/eip-7769) gives
+them a common JSON-RPC interface, and the account SDKs already accept any URL;
+[ZeroDev's docs](https://docs.zerodev.app/api-and-toolings/infrastructure/choose-an-infra-provider)
+say bundlers are "perfectly interoperable". What's missing is the habit. Examples and
+quickstarts embed a vendor's endpoint with a key, so the first bundler an app uses is the one it
+keeps.
 
-- SDK examples that take the bundler URL as configuration, and docs that show how to use
-  another, or several with a fallback;
-- developers choosing their bundler as they choose their RPC provider, so that changing it is a
-  one-line change, not a migration (when Biconomy stopped its bundler, its users had to move);
-- bundlers that take payment from the operation itself, so their URLs can be public, with no
-  account needed to try one.
+So we'd like to see SDK examples that take the bundler URL as configuration, with docs that
+show how to use another, or several with a fallback. We'd like developers to choose their
+bundler the way they choose their RPC provider, so that changing it is a one-line change and not
+a migration. And we'd like bundlers that take their payment from the operation itself, so their
+URLs can be public, with no account needed to try one.
 
 None of this asks anyone to give anything up. A vendor whose bundler is good keeps its users
 because they choose it.
+
+---
 
 ## What we run
 
@@ -155,8 +176,8 @@ It's built on a few principles:
 
 It serves Ethereum and Sepolia, EntryPoint v0.7 and v0.8, and EIP-7702 accounts as well as
 smart accounts. It's tested with viem, permissionless.js, ZeroDev, Alchemy's and MetaMask's
-SDKs. For an operation paying in ETH, the integration is the bundler URL; paying in a token
-takes a few lines more, to add the payment call:
+SDKs. For an operation paying in ETH, the integration is the bundler URL. Paying in a token
+takes a few lines more, to add the payment call.
 
 ```ts
 const bundlerClient = createBundlerClient({
