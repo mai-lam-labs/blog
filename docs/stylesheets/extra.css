@@ -105,7 +105,7 @@
 }
 
 /* below the width where the theme moves a post's sidebar under the article, as its meta, the
-   recent posts would land there too; they're left to the front page instead */
+   recent posts would land there too; they're in the drawer instead (javascripts/recent.js) */
 @media screen and (max-width: 76.234375em) {
   .md-sidebar--post .md-recent {
     display: none;
