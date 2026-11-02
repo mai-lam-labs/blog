@@ -104,6 +104,14 @@
   border-top: 1px solid var(--md-default-fg-color--lightest);
 }
 
+/* below the width where the theme moves a post's sidebar under the article, as its meta, the
+   recent posts would land there too; they're left to the front page instead */
+@media screen and (max-width: 76.234375em) {
+  .md-sidebar--post .md-recent {
+    display: none;
+  }
+}
+
 .md-recent__title {
   margin: 0 1rem 0.4rem;
   color: var(--md-default-fg-color--light);
@@ -111,4 +119,9 @@
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+}
+
+/* the site's name in the header links to the front page (overrides/partials/header.html) */
+.md-header__home {
+  color: inherit;
 }
