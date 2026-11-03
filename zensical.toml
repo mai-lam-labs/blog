@@ -18,8 +18,8 @@ custom_dir = "overrides"
 language = "en"
 logo = "assets/mailam.png"
 favicon = "assets/mailam.png"
-font.text = "Newsreader"
-font.code = "JetBrains Mono"
+# no web fonts: the system's own serif and monospace (stylesheets/extra.css)
+font = false
 features = [
   "content.code.copy",
   "navigation.footer",

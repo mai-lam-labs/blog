@@ -3,3 +3,6 @@
 .cache/
 dist/
 scratchpad/
+
+# research notes stay local
+notes/

@@ -1,5 +1,14 @@
 /* A reading page: serif text, larger type, a narrow column, cream paper and soft ink. */
 
+/* the fonts each system already has, nothing downloaded: Charter on Apple's, Sitka or Cambria on
+   Windows, Noto or DejaVu on Linux and Android, Georgia where none of those is */
+:root {
+  --md-text-font: Charter, "Bitstream Charter", "Sitka Text", Cambria, "Noto Serif", "DejaVu Serif",
+    Georgia, serif;
+  --md-code-font: ui-monospace, "SF Mono", Menlo, Consolas, "Cascadia Mono", "Noto Sans Mono",
+    "DejaVu Sans Mono", monospace;
+}
+
 :root,
 [data-md-color-scheme="default"] {
   --md-default-bg-color: #faf6ec;
